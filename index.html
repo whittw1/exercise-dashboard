@@ -298,24 +298,26 @@ function render(DATA) {
   const sortedMM = Object.keys(M).sort();
   const tbody = document.getElementById('monthly-tbody');
   tbody.innerHTML = '';
-  let prevSteps = null;
+  const trendIcon = (cur, prev) => prev === null ? ''
+    : cur > prev ? '<span class="trend-up">▲</span>'
+    : cur < prev ? '<span class="trend-down">▼</span>' : '';
+
+  let prevSteps = null, prevCal = null, prevStand = null;
   for (const mm of sortedMM) {
     const mo = M[mm];
     const partial = mo.count < MONTH_DAYS[mm];
-    const avgSteps = Math.round(mo.steps / mo.count);
-    const trend = prevSteps !== null
-      ? (avgSteps > prevSteps ? '<span class="trend-up">▲</span>'
-       : avgSteps < prevSteps ? '<span class="trend-down">▼</span>' : '')
-      : '';
-    prevSteps = avgSteps;
+    const avgSteps = Math.round(mo.steps    / mo.count);
+    const avgCal   = Math.round(mo.calories / mo.count);
+    const avgStand = parseFloat((mo.stand   / mo.count).toFixed(1));
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${MONTH_NAMES[mm]}${partial ? '<span class="partial-badge">partial</span>' : ''}</td>
       <td>${mo.count}</td>
-      <td>${fmt(avgSteps)}${trend}</td>
-      <td>${fmt(mo.calories / mo.count, 0)}</td>
-      <td>${fmt(mo.stand / mo.count, 1)}</td>
+      <td>${fmt(avgSteps)}${trendIcon(avgSteps, prevSteps)}</td>
+      <td>${fmt(avgCal)}${trendIcon(avgCal, prevCal)}</td>
+      <td>${fmt(avgStand, 1)}${trendIcon(avgStand, prevStand)}</td>
     `;
+    prevSteps = avgSteps; prevCal = avgCal; prevStand = avgStand;
     tbody.appendChild(tr);
   }
   const ytdRow = document.createElement('tr');
