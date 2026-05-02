@@ -4,7 +4,7 @@
 
 set -e
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+REPO="$HOME/exercise-dashboard"
 SOURCE="$HOME/Library/Mobile Documents/iCloud~com~ifunography~HealthExport/Documents/Apple Health Steps"
 DEST="$REPO/data"
 
@@ -39,7 +39,7 @@ if [ ! -d ".git" ]; then
   exit 0
 fi
 
-if git diff --quiet && git diff --cached --quiet; then
+if git diff --quiet -- data/ && git diff --cached --quiet -- data/; then
   echo ""
   echo "No changes to commit — data is already up to date."
   exit 0
