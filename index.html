@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 Health Dashboard</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+  background: #f2f2f7;
+  color: #1c1c1e;
+  padding: 24px 28px 40px;
+  max-width: 820px;
+  margin: 0 auto;
+}
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 3px; }
+.subtitle { color: #8e8e93; font-size: 13px; margin-bottom: 22px; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.card-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: #8e8e93; margin-bottom: 6px;
+}
+.card-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.card-unit  { font-size: 13px; font-weight: 500; color: #8e8e93; margin-top: 3px; }
+.card-total {
+  font-size: 12px; font-weight: 600; color: #8e8e93;
+  margin-top: 8px; border-top: 1px solid #f0f0f0; padding-top: 7px;
+}
+.steps .card-value    { color: #0071e3; }
+.calories .card-value { color: #ff3b30; }
+.stand .card-value    { color: #34c759; }
+
+.section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  margin-bottom: 16px;
+}
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: #8e8e93; padding: 0 8px 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+th:not(:first-child) { text-align: right; }
+td { padding: 10px 8px 10px 0; font-size: 14px; border-bottom: 1px solid #f7f7f7; }
+td:not(:first-child) { text-align: right; }
+tr:last-child td { border-bottom: none; }
+tr.ytd-row td {
+  font-weight: 700; border-top: 2px solid #e5e5ea;
+  border-bottom: none; padding-top: 11px;
+}
+.partial-badge {
+  font-size: 10px; font-weight: 600; color: #8e8e93;
+  background: #f2f2f7; padding: 1px 5px; border-radius: 4px;
+  margin-left: 5px; vertical-align: middle;
+}
+.trend-up   { color: #34c759; font-size: 11px; margin-left: 2px; }
+.trend-down { color: #ff3b30; font-size: 11px; margin-left: 2px; }
+
+#loading {
+  text-align: center; padding: 80px 20px; color: #8e8e93; font-size: 15px;
+}
+.spinner {
+  width: 30px; height: 30px;
+  border: 3px solid #e5e5ea; border-top-color: #0071e3;
+  border-radius: 50%; animation: spin 0.75s linear infinite;
+  margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box {
+  background: #fff0f0; border: 1px solid #ffcdd2;
+  border-radius: 12px; padding: 16px 18px; color: #c62828; font-size: 13px;
+}
+.note {
+  font-size: 12px; color: #8e8e93; margin-top: 12px; line-height: 1.6;
+}
+.updated { font-size: 11px; color: #c7c7cc; text-align: right; margin-top: 14px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div>Loading health data…</div>
+<div id="main" style="display:none">
+  <h1>2026 Health Dashboard</h1>
+  <div class="subtitle" id="subtitle"></div>
+
+  <div class="cards">
+    <div class="card steps">
+      <div class="card-label">Steps</div>
+      <div class="card-value" id="v-steps">—</div>
+      <div class="card-unit">daily average</div>
+      <div class="card-total" id="t-steps"></div>
+    </div>
+    <div class="card calories">
+      <div class="card-label">Active Energy</div>
+      <div class="card-value" id="v-cal">—</div>
+      <div class="card-unit">kcal / day</div>
+      <div class="card-total" id="t-cal"></div>
+    </div>
+    <div class="card stand">
+      <div class="card-label">Stand Hours</div>
+      <div class="card-value" id="v-stand">—</div>
+      <div class="card-unit">hours / day</div>
+      <div class="card-total" id="t-stand"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Monthly Averages</div>
+    <canvas id="chart" height="95"></canvas>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Monthly Breakdown</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Days</th>
+          <th>Steps / day</th>
+          <th>Cal / day</th>
+          <th>Stand / day</th>
+        </tr>
+      </thead>
+      <tbody id="monthly-tbody"></tbody>
+    </table>
+    <div class="note">
+      Active Energy excludes resting metabolic rate (BMR).<br>
+      Stand Hours = Apple Watch metric — hours with ≥1 min of standing activity (max 16/day).
+    </div>
+  </div>
+
+  <div class="updated" id="updated"></div>
+</div>
+
+<script>
+// ─── CSV parser ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => row[h] = (vals[i] || '').trim());
+    return row;
+  });
+}
+
+function rowToDay(row) {
+  const dt = (row['Date/Time'] || '').slice(0, 10);
+  if (dt.length !== 10) return null;
+  try {
+    return {
+      date:     dt,
+      steps:    parseInt(row['Step Count (count)']       || 0, 10),
+      calories: parseFloat(row['Active Energy (kcal)']   || 0),
+      stand:    parseInt(row['Apple Stand Hour (count)'] || 0, 10)
+    };
+  } catch { return null; }
+}
+
+// ─── File fetching ────────────────────────────────────────────────────────────
+async function tryFetch(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.text();
+  } catch { return null; }
+}
+
+async function loadAllData() {
+  const DATA = {};
+
+  // Monthly files: March onwards (preferred / most complete)
+  const monthlyMonths = ['03','04','05','06','07','08','09','10','11','12'];
+  const monthlyFetches = monthlyMonths.map(mm =>
+    tryFetch(`data/HealthMetrics-2026-${mm}.csv`).then(text => {
+      if (!text) return;
+      parseCSV(text).forEach(row => {
+        const d = rowToDay(row);
+        if (d) DATA[d.date] = d;
+      });
+    })
+  );
+
+  // Daily files: January + February
+  const dailyFiles = [];
+  for (let day = 1; day <= 31; day++)
+    dailyFiles.push(`data/HealthMetrics-2026-01-${String(day).padStart(2,'0')}.csv`);
+  for (let day = 1; day <= 28; day++)
+    dailyFiles.push(`data/HealthMetrics-2026-02-${String(day).padStart(2,'0')}.csv`);
+
+  const dailyFetches = dailyFiles.map(url =>
+    tryFetch(url).then(text => {
+      if (!text) return;
+      parseCSV(text).forEach(row => {
+        const d = rowToDay(row);
+        if (d && !DATA[d.date]) DATA[d.date] = d;
+      });
+    })
+  );
+
+  await Promise.all([...monthlyFetches, ...dailyFetches]);
+  return DATA;
+}
+
+// ─── Rendering ────────────────────────────────────────────────────────────────
+const MONTH_NAMES = {
+  '01':'January','02':'February','03':'March','04':'April',
+  '05':'May','06':'June','07':'July','08':'August',
+  '09':'September','10':'October','11':'November','12':'December'
+};
+const MONTH_DAYS = {
+  '01':31,'02':28,'03':31,'04':30,'05':31,'06':30,
+  '07':31,'08':31,'09':30,'10':31,'11':30,'12':31
+};
+
+function fmt(n, d = 0) {
+  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+function render(DATA) {
+  const dates = Object.keys(DATA).sort();
+  if (!dates.length) {
+    document.getElementById('loading').textContent = 'No data files found in data/ folder.';
+    return;
+  }
+
+  const n        = dates.length;
+  const last     = dates[n - 1];
+  const totSteps = dates.reduce((s, d) => s + DATA[d].steps,    0);
+  const totCal   = dates.reduce((s, d) => s + DATA[d].calories, 0);
+  const totStand = dates.reduce((s, d) => s + DATA[d].stand,    0);
+
+  // Monthly breakdown
+  const M = {};
+  for (const [, d] of Object.entries(DATA)) {
+    const mm = d.date.slice(5, 7);
+    if (!M[mm]) M[mm] = { steps: 0, calories: 0, stand: 0, count: 0 };
+    M[mm].steps    += d.steps;
+    M[mm].calories += d.calories;
+    M[mm].stand    += d.stand;
+    M[mm].count++;
+  }
+
+  // Header
+  document.getElementById('subtitle').textContent =
+    `Jan 1, 2026 – ${last}  ·  ${n} days`;
+
+  // Stat cards
+  document.getElementById('v-steps').textContent = fmt(totSteps / n);
+  document.getElementById('t-steps').textContent = fmt(totSteps) + ' steps YTD';
+  document.getElementById('v-cal').textContent   = fmt(totCal / n);
+  document.getElementById('t-cal').textContent   = fmt(Math.round(totCal)) + ' kcal YTD';
+  document.getElementById('v-stand').textContent = fmt(totStand / n, 1);
+  document.getElementById('t-stand').textContent = fmt(totStand) + ' hrs YTD';
+
+  // Monthly table
+  const sortedMM = Object.keys(M).sort();
+  const tbody = document.getElementById('monthly-tbody');
+  tbody.innerHTML = '';
+  let prevSteps = null;
+  for (const mm of sortedMM) {
+    const mo = M[mm];
+    const partial = mo.count < MONTH_DAYS[mm];
+    const avgSteps = Math.round(mo.steps / mo.count);
+    const trend = prevSteps !== null
+      ? (avgSteps > prevSteps ? '<span class="trend-up">▲</span>'
+       : avgSteps < prevSteps ? '<span class="trend-down">▼</span>' : '')
+      : '';
+    prevSteps = avgSteps;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${MONTH_NAMES[mm]}${partial ? '<span class="partial-badge">partial</span>' : ''}</td>
+      <td>${mo.count}</td>
+      <td>${fmt(avgSteps)}${trend}</td>
+      <td>${fmt(mo.calories / mo.count, 0)}</td>
+      <td>${fmt(mo.stand / mo.count, 1)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  const ytdRow = document.createElement('tr');
+  ytdRow.className = 'ytd-row';
+  ytdRow.innerHTML = `
+    <td>YTD Avg</td><td>${n}</td>
+    <td>${fmt(totSteps / n)}</td>
+    <td>${fmt(totCal / n, 0)}</td>
+    <td>${fmt(totStand / n, 1)}</td>
+  `;
+  tbody.appendChild(ytdRow);
+
+  // Chart
+  const labels = sortedMM.map(mm => MONTH_NAMES[mm].slice(0, 3));
+  const sData  = sortedMM.map(mm => Math.round(M[mm].steps    / M[mm].count));
+  const cData  = sortedMM.map(mm => Math.round(M[mm].calories / M[mm].count));
+  const stData = sortedMM.map(mm => parseFloat((M[mm].stand   / M[mm].count).toFixed(1)));
+
+  new Chart(document.getElementById('chart').getContext('2d'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar',  label: 'Avg Steps',     data: sData,  backgroundColor: 'rgba(0,113,227,0.65)',  yAxisID: 'y'  },
+        { type: 'bar',  label: 'Avg Active Cal', data: cData,  backgroundColor: 'rgba(255,59,48,0.65)',  yAxisID: 'y'  },
+        { type: 'line', label: 'Avg Stand Hrs',  data: stData,
+          borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
+          pointBackgroundColor: '#34c759', tension: 0.35, yAxisID: 'y2', order: 0 }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } },
+      scales: {
+        y:  { position: 'left',  title: { display: true, text: 'Steps / Calories', font: { size: 11 } } },
+        y2: { position: 'right', min: 8, max: 18,
+              title: { display: true, text: 'Stand Hrs', font: { size: 11 } },
+              grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+
+  document.getElementById('updated').textContent =
+    'Last updated: ' + new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('main').style.display    = 'block';
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const data = await loadAllData();
+    render(data);
+  } catch (err) {
+    document.getElementById('loading').innerHTML =
+      `<div class="error-box"><strong>Error loading data</strong><br>${err.message}</div>`;
+  }
+})();
+</script>
+</body>
+</html>
