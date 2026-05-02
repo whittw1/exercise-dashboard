@@ -39,6 +39,9 @@ if [ ! -d ".git" ]; then
   exit 0
 fi
 
+# Always write a fresh sync timestamp
+echo "{\"synced\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" > "$DEST/last-sync.json"
+
 if git diff --quiet -- data/ && git diff --cached --quiet -- data/; then
   echo ""
   echo "No changes to commit — data is already up to date."
