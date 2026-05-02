@@ -357,11 +357,11 @@ function render(DATA) {
       data: {
         labels: dailyLabels,
         datasets: [
-          { type: 'line', label: 'Steps',     data: dailySData,  borderColor: 'rgba(0,113,227,0.8)',  backgroundColor: 'rgba(0,113,227,0.08)',  pointRadius: 0, tension: 0.3, yAxisID: 'y'  },
-          { type: 'line', label: 'Active Cal', data: dailyCData,  borderColor: 'rgba(255,59,48,0.8)',  backgroundColor: 'rgba(255,59,48,0.08)',  pointRadius: 0, tension: 0.3, yAxisID: 'y'  },
+          { type: 'bar',  label: 'Steps',     data: dailySData,  backgroundColor: 'rgba(0,113,227,0.65)', yAxisID: 'y'  },
+          { type: 'bar',  label: 'Active Cal', data: dailyCData,  backgroundColor: 'rgba(255,59,48,0.65)', yAxisID: 'y'  },
           { type: 'line', label: 'Stand Hrs',  data: dailyStData,
-            borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.08)',
-            pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 0 }
+            borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
+            pointBackgroundColor: '#34c759', pointRadius: 0, tension: 0.35, yAxisID: 'y2', order: 0 }
         ]
       }
     }
