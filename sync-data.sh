@@ -42,7 +42,9 @@ fi
 # Always write a fresh sync timestamp
 echo "{\"synced\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" > "$DEST/last-sync.json"
 
-if git diff --quiet -- data/ && git diff --cached --quiet -- data/; then
+git add data/
+
+if git diff --cached --quiet -- data/; then
   echo ""
   echo "No changes to commit — data is already up to date."
   exit 0
@@ -50,7 +52,6 @@ fi
 
 echo ""
 echo "Committing and pushing…"
-git add data/
 git commit -m "Update health data $(date '+%Y-%m-%d')"
 git push
 
