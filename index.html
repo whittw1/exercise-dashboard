@@ -258,7 +258,7 @@ function fmt(n, d = 0) {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
-function render(DATA) {
+async function render(DATA) {
   const dates = Object.keys(DATA).sort();
   if (!dates.length) {
     document.getElementById('loading').textContent = 'No data files found in data/ folder.';
