@@ -39,16 +39,18 @@ if [ ! -d ".git" ]; then
   exit 0
 fi
 
-# Always write a fresh sync timestamp
-echo "{\"synced\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" > "$DEST/last-sync.json"
+# Check if health CSVs changed
+git add data/*.csv 2>/dev/null || true
 
-git add data/
-
-if git diff --cached --quiet -- data/; then
+if git diff --cached --quiet; then
   echo ""
   echo "No changes to commit — data is already up to date."
   exit 0
 fi
+
+# CSVs changed — write timestamp and stage everything
+echo "{\"synced\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" > "$DEST/last-sync.json"
+git add data/
 
 echo ""
 echo "Committing and pushing…"
