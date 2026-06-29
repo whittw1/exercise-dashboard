@@ -12,9 +12,14 @@ mkdir -p "$DEST"
 
 echo "Syncing CSVs…"
 
-# Monthly files (March onwards — preferred, most complete)
+# Monthly files: only copy the current month (past months are locked in git)
+CURRENT_MM=$(date '+%m')
 for f in "$SOURCE"/HealthMetrics-2026-??.csv; do
-  [ -f "$f" ] && cp "$f" "$DEST/" && echo "  copied $(basename "$f")"
+  [ -f "$f" ] || continue
+  MM=$(basename "$f" | sed 's/HealthMetrics-2026-\(..\)\.csv/\1/')
+  if [ "$MM" = "$CURRENT_MM" ]; then
+    cp "$f" "$DEST/" && echo "  copied $(basename "$f")"
+  fi
 done
 
 # Individual daily files for January and February
