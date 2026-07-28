@@ -172,6 +172,15 @@ tr.ytd-row td {
 </div>
 
 <script>
+// ─── Date helpers ──────────────────────────────────────────────────────────────
+// Parse a "YYYY-MM-DD" string as a LOCAL date, not UTC. new Date("YYYY-MM-DD")
+// parses as UTC midnight, which renders as the previous day in any timezone
+// west of UTC (e.g. US timezones) when formatted with toLocaleDateString.
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // ─── CSV parser ───────────────────────────────────────────────────────────────
 function parseCSV(text) {
   const lines = text.trim().split('\n');
@@ -222,12 +231,19 @@ async function loadAllData() {
     })
   );
 
-  // Daily files: January + February
+  // Daily files: every month, not just Jan/Feb. Auto Export can write per-day
+  // files for any month (not only the historical Jan/Feb pattern), so these
+  // fill in any date the monthly rollup is missing. tryFetch silently returns
+  // null on a 404, so requesting a day that doesn't have a file is harmless.
+  const daysInMonth = {
+    '01':31,'02':28,'03':31,'04':30,'05':31,'06':30,
+    '07':31,'08':31,'09':30,'10':31,'11':30,'12':31
+  };
   const dailyFiles = [];
-  for (let day = 1; day <= 31; day++)
-    dailyFiles.push(`data/HealthMetrics-2026-01-${String(day).padStart(2,'0')}.csv`);
-  for (let day = 1; day <= 28; day++)
-    dailyFiles.push(`data/HealthMetrics-2026-02-${String(day).padStart(2,'0')}.csv`);
+  for (const mm of Object.keys(daysInMonth)) {
+    for (let day = 1; day <= daysInMonth[mm]; day++)
+      dailyFiles.push(`data/HealthMetrics-2026-${mm}-${String(day).padStart(2,'0')}.csv`);
+  }
 
   const dailyFetches = dailyFiles.map(url =>
     tryFetch(url).then(text => {
@@ -403,7 +419,7 @@ async function render(DATA) {
     } catch { return ''; }
   });
   document.getElementById('footer').innerHTML =
-    'Data through: ' + new Date(last).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }) +
+    'Data through: ' + parseLocalDate(last).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }) +
     (syncText ? '<br>' + syncText : '');
 
   document.getElementById('loading').style.display = 'none';
