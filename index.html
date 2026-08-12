@@ -357,7 +357,7 @@ async function render(DATA) {
   // ── Stat cards ───────────────────────────────────────────────────────────────
   document.getElementById('v-steps').textContent = fmt(totSteps / n);
   document.getElementById('t-steps').textContent = fmt(totSteps) + ' steps YTD';
-  document.getElementById('p-steps').textContent = `On pace for ${fmt(projSteps)} by Dec 31`;
+  document.getElementById('p-steps').textContent = `On pace for ${fmt(Math.round(projSteps / 365))} steps/day avg`;
   document.getElementById('v-cal').textContent   = fmt(totCal / n);
   document.getElementById('t-cal').textContent   = fmt(Math.round(totCal)) + ' kcal YTD';
   document.getElementById('p-cal').textContent   = `On pace for ${fmt(projCal)} kcal`;
