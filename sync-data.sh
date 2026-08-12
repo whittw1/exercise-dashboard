@@ -55,7 +55,7 @@ PYEOF
 
 echo "Syncing CSVs…"
 
-# Current month: merge (never replace wholesale)
+# Monthly summary files: merge current month, skip past months (locked in git)
 CURRENT_MM=$(date '+%m')
 for f in "$SOURCE"/HealthMetrics-2026-??.csv; do
   [ -f "$f" ] || continue
@@ -66,8 +66,8 @@ for f in "$SOURCE"/HealthMetrics-2026-??.csv; do
   fi
 done
 
-# Jan/Feb daily files (historical, just copy if missing)
-for f in "$SOURCE"/HealthMetrics-2026-01-??.csv "$SOURCE"/HealthMetrics-2026-02-??.csv; do
+# Daily files for all months: copy if missing (daily files are immutable once written)
+for f in "$SOURCE"/HealthMetrics-2026-??-??.csv; do
   [ -f "$f" ] || continue
   DEST_FILE="$DEST/$(basename "$f")"
   [ -f "$DEST_FILE" ] || { cp "$f" "$DEST_FILE" && echo "  copied $(basename "$f")"; }
