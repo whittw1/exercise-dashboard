@@ -210,7 +210,7 @@ function rowToDay(row) {
 // ─── File fetching ────────────────────────────────────────────────────────────
 async function tryFetch(url) {
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { cache: 'no-cache' });
     if (!r.ok) return null;
     return await r.text();
   } catch { return null; }
