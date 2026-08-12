@@ -88,6 +88,13 @@ tr.ytd-row td {
 .trend-up   { color: #34c759; font-size: 11px; margin-left: 2px; }
 .trend-down { color: #ff3b30; font-size: 11px; margin-left: 2px; }
 
+.pace-line { font-size: 11px; color: #8e8e93; margin-top: 5px; }
+.records { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+.record-card { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.record-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #8e8e93; margin-bottom: 5px; }
+.record-value { font-size: 20px; font-weight: 700; color: #0071e3; line-height: 1.1; }
+.record-sub { font-size: 11px; color: #8e8e93; margin-top: 3px; }
+
 #loading {
   text-align: center; padding: 80px 20px; color: #8e8e93; font-size: 15px;
 }
@@ -122,26 +129,32 @@ tr.ytd-row td {
       <div class="card-value" id="v-steps">—</div>
       <div class="card-unit">daily average</div>
       <div class="card-total" id="t-steps"></div>
+      <div class="pace-line" id="p-steps"></div>
     </div>
     <div class="card calories">
       <div class="card-label">Active Energy</div>
       <div class="card-value" id="v-cal">—</div>
       <div class="card-unit">kcal / day</div>
       <div class="card-total" id="t-cal"></div>
+      <div class="pace-line" id="p-cal"></div>
     </div>
     <div class="card stand">
       <div class="card-label">Stand Hours</div>
       <div class="card-value" id="v-stand">—</div>
       <div class="card-unit">hours / day</div>
       <div class="card-total" id="t-stand"></div>
+      <div class="pace-line" id="p-stand"></div>
     </div>
   </div>
+
+  <div class="records" id="records"></div>
 
   <div class="section">
     <div class="section-header">
       <div class="section-title">Trends</div>
       <div class="tab-group">
         <button class="tab-btn active" id="tab-monthly" onclick="switchTab('monthly')">Monthly</button>
+        <button class="tab-btn" id="tab-weekly" onclick="switchTab('weekly')">Weekly</button>
         <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">Daily</button>
       </div>
     </div>
@@ -274,6 +287,13 @@ function fmt(n, d = 0) {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
+function weekStart(dateStr) {
+  const d = parseLocalDate(dateStr);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 async function render(DATA) {
   const dates = Object.keys(DATA).sort();
   if (!dates.length) {
@@ -287,7 +307,7 @@ async function render(DATA) {
   const totCal   = dates.reduce((s, d) => s + DATA[d].calories, 0);
   const totStand = dates.reduce((s, d) => s + DATA[d].stand,    0);
 
-  // Monthly breakdown
+  // Monthly aggregation
   const M = {};
   for (const [, d] of Object.entries(DATA)) {
     const mm = d.date.slice(5, 7);
@@ -297,21 +317,74 @@ async function render(DATA) {
     M[mm].stand    += d.stand;
     M[mm].count++;
   }
+  const sortedMM = Object.keys(M).sort();
 
-  // Header
+  // Weekly aggregation
+  const W = {};
+  for (const date of dates) {
+    const wk = weekStart(date);
+    if (!W[wk]) W[wk] = { steps: 0, cal: 0, stand: 0, count: 0 };
+    W[wk].steps += DATA[date].steps;
+    W[wk].cal   += DATA[date].calories;
+    W[wk].stand += DATA[date].stand;
+    W[wk].count++;
+  }
+  const sortedWks = Object.keys(W).sort();
+
+  // ── Pace projection ──────────────────────────────────────────────────────────
+  const yearEnd  = new Date(2026, 11, 31);
+  const lastDay  = parseLocalDate(last);
+  const daysLeft = Math.max(0, Math.round((yearEnd - lastDay) / 86400000));
+  const projSteps = Math.round(totSteps + (totSteps / n) * daysLeft);
+  const projCal   = Math.round(totCal   + (totCal   / n) * daysLeft);
+  const projStand = Math.round(totStand + (totStand  / n) * daysLeft);
+
+  // ── Personal bests ───────────────────────────────────────────────────────────
+  const bestDayDate = dates.reduce((b, d) => DATA[d].steps > DATA[b].steps ? d : b);
+  const bestWk      = sortedWks.reduce((b, wk) =>
+    (W[wk].steps / W[wk].count) > (W[b].steps / W[b].count) ? wk : b);
+  const bestMM      = sortedMM.reduce((b, mm) =>
+    (M[mm].steps / M[mm].count) > (M[b].steps / M[b].count) ? mm : b);
+
+  const bestWkEnd = parseLocalDate(bestWk);
+  bestWkEnd.setDate(bestWkEnd.getDate() + 6);
+  const shortDate = d => parseLocalDate(d).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+
+  // ── Header ───────────────────────────────────────────────────────────────────
   document.getElementById('subtitle').textContent =
     `Jan 1, 2026 – ${last}  ·  ${n} days`;
 
-  // Stat cards
+  // ── Stat cards ───────────────────────────────────────────────────────────────
   document.getElementById('v-steps').textContent = fmt(totSteps / n);
   document.getElementById('t-steps').textContent = fmt(totSteps) + ' steps YTD';
+  document.getElementById('p-steps').textContent = `On pace for ${fmt(projSteps)} by Dec 31`;
   document.getElementById('v-cal').textContent   = fmt(totCal / n);
   document.getElementById('t-cal').textContent   = fmt(Math.round(totCal)) + ' kcal YTD';
+  document.getElementById('p-cal').textContent   = `On pace for ${fmt(projCal)} kcal`;
   document.getElementById('v-stand').textContent = fmt(totStand / n, 1);
   document.getElementById('t-stand').textContent = fmt(totStand) + ' hrs YTD';
+  document.getElementById('p-stand').textContent = `On pace for ${fmt(projStand)} hrs`;
 
-  // Monthly table
-  const sortedMM = Object.keys(M).sort();
+  // ── Personal bests ───────────────────────────────────────────────────────────
+  document.getElementById('records').innerHTML = `
+    <div class="record-card">
+      <div class="record-label">Best Day</div>
+      <div class="record-value">${fmt(DATA[bestDayDate].steps)}</div>
+      <div class="record-sub">steps · ${shortDate(bestDayDate)}</div>
+    </div>
+    <div class="record-card">
+      <div class="record-label">Best Week Avg</div>
+      <div class="record-value">${fmt(Math.round(W[bestWk].steps / W[bestWk].count))}</div>
+      <div class="record-sub">steps/day · ${shortDate(bestWk)}–${shortDate(bestWkEnd.toISOString().slice(0,10))}</div>
+    </div>
+    <div class="record-card">
+      <div class="record-label">Best Month Avg</div>
+      <div class="record-value">${fmt(Math.round(M[bestMM].steps / M[bestMM].count))}</div>
+      <div class="record-sub">steps/day · ${MONTH_NAMES[bestMM]}</div>
+    </div>
+  `;
+
+  // ── Monthly table ─────────────────────────────────────────────────────────────
   const tbody = document.getElementById('monthly-tbody');
   tbody.innerHTML = '';
   const trendIcon = (cur, prev) => prev === null ? ''
@@ -346,26 +419,47 @@ async function render(DATA) {
   `;
   tbody.appendChild(ytdRow);
 
-  // Monthly chart data
+  // ── Chart data ────────────────────────────────────────────────────────────────
   const monthlyLabels = sortedMM.map(mm => MONTH_NAMES[mm].slice(0, 3));
   const monthlySData  = sortedMM.map(mm => Math.round(M[mm].steps    / M[mm].count));
   const monthlyCData  = sortedMM.map(mm => Math.round(M[mm].calories / M[mm].count));
   const monthlyStData = sortedMM.map(mm => parseFloat((M[mm].stand   / M[mm].count).toFixed(1)));
 
-  // Daily chart data
+  const weeklyLabels = sortedWks.map(wk =>
+    parseLocalDate(wk).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
+  const weeklySData  = sortedWks.map(wk => Math.round(W[wk].steps / W[wk].count));
+  const weeklyCData  = sortedWks.map(wk => Math.round(W[wk].cal   / W[wk].count));
+  const weeklyStData = sortedWks.map(wk => parseFloat((W[wk].stand / W[wk].count).toFixed(1)));
+
   const dailyLabels = dates.map(d => d.slice(5));
   const dailySData  = dates.map(d => DATA[d].steps);
   const dailyCData  = dates.map(d => Math.round(DATA[d].calories));
   const dailyStData = dates.map(d => DATA[d].stand);
+  const rolling7    = dates.map((_, i) => {
+    const slice = dates.slice(Math.max(0, i - 6), i + 1);
+    return Math.round(slice.reduce((s, d) => s + DATA[d].steps, 0) / slice.length);
+  });
 
   const CHART_CONFIGS = {
     monthly: {
       data: {
         labels: monthlyLabels,
         datasets: [
-          { type: 'bar',  label: 'Avg Steps',     data: monthlySData,  backgroundColor: 'rgba(0,113,227,0.65)', yAxisID: 'y'  },
-          { type: 'bar',  label: 'Avg Active Cal', data: monthlyCData,  backgroundColor: 'rgba(255,59,48,0.65)', yAxisID: 'y'  },
-          { type: 'line', label: 'Avg Stand Hrs',  data: monthlyStData,
+          { type: 'bar',  label: 'Avg Steps',      data: monthlySData,  backgroundColor: 'rgba(0,113,227,0.65)', yAxisID: 'y'  },
+          { type: 'bar',  label: 'Avg Active Cal',  data: monthlyCData,  backgroundColor: 'rgba(255,59,48,0.65)', yAxisID: 'y'  },
+          { type: 'line', label: 'Avg Stand Hrs',   data: monthlyStData,
+            borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
+            pointBackgroundColor: '#34c759', tension: 0.35, yAxisID: 'y2', order: 0 }
+        ]
+      }
+    },
+    weekly: {
+      data: {
+        labels: weeklyLabels,
+        datasets: [
+          { type: 'bar',  label: 'Avg Steps',      data: weeklySData,  backgroundColor: 'rgba(0,113,227,0.65)', yAxisID: 'y'  },
+          { type: 'bar',  label: 'Avg Active Cal',  data: weeklyCData,  backgroundColor: 'rgba(255,59,48,0.65)', yAxisID: 'y'  },
+          { type: 'line', label: 'Avg Stand Hrs',   data: weeklyStData,
             borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
             pointBackgroundColor: '#34c759', tension: 0.35, yAxisID: 'y2', order: 0 }
         ]
@@ -375,11 +469,14 @@ async function render(DATA) {
       data: {
         labels: dailyLabels,
         datasets: [
-          { type: 'bar',  label: 'Steps',     data: dailySData,  backgroundColor: 'rgba(0,113,227,0.65)', yAxisID: 'y'  },
-          { type: 'bar',  label: 'Active Cal', data: dailyCData,  backgroundColor: 'rgba(255,59,48,0.65)', yAxisID: 'y'  },
-          { type: 'line', label: 'Stand Hrs',  data: dailyStData,
+          { type: 'bar',  label: 'Steps',          data: dailySData,  backgroundColor: 'rgba(0,113,227,0.4)',  yAxisID: 'y'  },
+          { type: 'bar',  label: 'Active Cal',      data: dailyCData,  backgroundColor: 'rgba(255,59,48,0.4)',  yAxisID: 'y'  },
+          { type: 'line', label: '7-day Avg Steps', data: rolling7,
+            borderColor: '#0071e3', backgroundColor: 'transparent',
+            pointRadius: 0, tension: 0.3, borderWidth: 2.5, yAxisID: 'y', order: 0 },
+          { type: 'line', label: 'Stand Hrs',       data: dailyStData,
             borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
-            pointBackgroundColor: '#34c759', pointRadius: 0, tension: 0.35, yAxisID: 'y2', order: 0 }
+            pointRadius: 0, tension: 0.35, yAxisID: 'y2', order: 0 }
         ]
       }
     }
@@ -403,10 +500,9 @@ async function render(DATA) {
   });
 
   window.switchTab = function(tab) {
-    document.getElementById('tab-monthly').classList.toggle('active', tab === 'monthly');
-    document.getElementById('tab-daily').classList.toggle('active', tab === 'daily');
-    const cfg = CHART_CONFIGS[tab];
-    window._chart.data = cfg.data;
+    ['monthly', 'weekly', 'daily'].forEach(t =>
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab));
+    window._chart.data = CHART_CONFIGS[tab].data;
     window._chart.update();
   };
 
